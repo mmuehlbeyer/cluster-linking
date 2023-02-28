@@ -1,0 +1,70 @@
+---
+version: '3.5'
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_AUTH_PROVIDER_SASL: org.apache.zookeeper.server.auth.SASLAuthenticationProvider
+      ZOOKEEPER_REQUIRE_CLIENT_AUTH_SCHEME: sasl
+      EXTRA_ARGS: "
+        -Djava.security.auth.login.config=/etc/kafka/zookeeper_jaas.conf
+      "
+    volumes:
+      - ./etc/zookeeper_jaas.conf:/etc/kafka/zookeeper_jaas.conf
+
+  broker:
+    image: confluentinc/cp-server:latest
+    container_name: broker
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_PLAINTEXT_HOST:SASL_PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092,SASL_PLAINTEXT://broker:29093,SASL_PLAINTEXT_HOST://localhost:9093
+      
+      KAFKA_SASL_ENABLED_MECHANISMS: SCRAM-SHA-256
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+      KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE: "false"
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+
+      KAFKA_CONFLUENT_CLUSTER_LINK_ENABLE: "true"
+      KAFKA_CONFLUENT_REPORTERS_TELEMTRY_AUTO_ENABLE: "false"
+      
+      KAFKA_OPTS: "
+        -Djava.security.auth.login.config=/etc/kafka/kafka_jaas.conf"
+    volumes:
+      - ./etc/kafka.jaas.conf:/etc/kafka/kafka_jaas.conf
+
+
+
+
+  control-center:
+    image: confluentinc/cp-enterprise-control-center:latest
+    restart: always
+    container_name: control-center
+    ports:
+      - "9021:9021"
+    environment:
+      CONTROL_CENTER_BOOTSTRAP_SERVERS: broker:29092
+      CONTROL_CENTER_ZOOKEEPER_CONNECT: zookeeper:2181
+      CONTROL_CENTER_REPLICATION_FACTOR: 1
+      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_REPLICATION: 1
+      CONTROL_CENTER_INTERNAL_TOPICS_REPLICATION: 1
+      CONTROL_CENTER_COMMAND_TOPIC_REPLICATION: 1
+      CONTROL_CENTER_METRICS_TOPIC_REPLICATION: 1
+      CONTROL_CENTER_UI_AUTOUPDATE_ENABLE: "true"    
